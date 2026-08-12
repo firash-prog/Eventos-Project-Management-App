@@ -2,6 +2,8 @@ import React from 'react';
 import {
   ShieldAlert,
   LayoutDashboard,
+  Building2,
+  FileSpreadsheet,
   CalendarDays,
   Users,
   Box,
@@ -11,7 +13,6 @@ import {
   Settings,
   Zap,
   Activity,
-  Layers,
 } from 'lucide-react';
 import { NavigationTab } from '../types';
 
@@ -40,6 +41,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'dashboard' as NavigationTab,
       label: 'Dashboard Overview',
       icon: LayoutDashboard,
+    },
+    {
+      id: 'clients' as NavigationTab,
+      label: 'Client CRM',
+      icon: Building2,
+    },
+    {
+      id: 'rfqs' as NavigationTab,
+      label: 'RFQ Intake & Splitting',
+      icon: FileSpreadsheet,
     },
     {
       id: 'events' as NavigationTab,

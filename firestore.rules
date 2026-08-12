@@ -1,8 +1,8 @@
 rules_version = '2';
 
 /**
- * EVENTOS - PHASE 1 FIRESTORE SECURITY RULES
- * Enforces RBAC for Roles, Users, Approval Requests, and Immutable Audit Logs.
+ * EVENTOS - PHASE 2 FIRESTORE SECURITY RULES
+ * Enforces RBAC for Roles, Users, CRM Clients, RFQs, Approval Requests, and Immutable Audit Logs.
  */
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -35,6 +35,12 @@ service cloud.firestore {
       return role.permissions[permissionKey] == true;
     }
 
+    function isExecutiveOrFinanceOrCR() {
+      let roleId = getUserData().roleId;
+      let dept = getUserData().department;
+      return isSuperAdmin() || isSystemAdmin() || roleId == 'ceo' || roleId == 'assistant_ceo' || dept == 'Customer Relations' || hasPermission('canViewFinance');
+    }
+
     // ROLES COLLECTION
     match /roles/{roleId} {
       allow read: if isAuthenticated();
@@ -50,6 +56,31 @@ service cloud.firestore {
         (!exists(/databases/$(database)/documents/users/$(userId)) || resource.data.roleId != 'superadmin')
       );
       allow delete: if isSuperAdmin();
+    }
+
+    // CLIENTS CRM COLLECTION
+    match /clients/{clientId} {
+      allow read: if isExecutiveOrFinanceOrCR();
+      allow create, update: if isExecutiveOrFinanceOrCR();
+      allow delete: if isSuperAdmin() || getUserData().roleId == 'ceo';
+    }
+
+    // RFQs INTAKE COLLECTION
+    match /rfqs/{rfqId} {
+      allow read: if isExecutiveOrFinanceOrCR() || (
+        isAuthenticated() && (
+          resource.data.receivedByUid == request.auth.uid ||
+          (request.auth.uid in resource.data.assignedPricerUids)
+        )
+      );
+      allow create: if isAuthenticated();
+      allow update: if isExecutiveOrFinanceOrCR() || (
+        isAuthenticated() && (
+          resource.data.receivedByUid == request.auth.uid ||
+          (request.auth.uid in resource.data.assignedPricerUids)
+        )
+      );
+      allow delete: if isSuperAdmin() || getUserData().roleId == 'ceo';
     }
 
     // APPROVAL REQUESTS (UNIFIED ENGINE)

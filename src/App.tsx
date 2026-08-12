@@ -10,6 +10,8 @@ import {
   VendorItem,
   BudgetItem,
   ActivityLog,
+  ClientDocument,
+  RFQDocument,
 } from './types';
 import {
   initialUsers,
@@ -28,6 +30,8 @@ import { CommandCopilotDrawer } from './components/CommandCopilotDrawer';
 
 import { CommandCenterView } from './components/views/CommandCenterView';
 import { DashboardView } from './components/views/DashboardView';
+import { ClientCRMView } from './components/views/ClientCRMView';
+import { RFQDirectoryView } from './components/views/RFQDirectoryView';
 import { EventsDirectoryView } from './components/views/EventsDirectoryView';
 import { StaffScheduleView } from './components/views/StaffScheduleView';
 import { InventoryView } from './components/views/InventoryView';
@@ -41,6 +45,93 @@ import { ToastProvider } from './context/ToastContext';
 import { LoginModal } from './components/auth/LoginModal';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 
+// Initial Seed Data for Phase 2 CRM & RFQs
+const initialClientsSeed: ClientDocument[] = [
+  {
+    id: 'cli-1',
+    name: 'Ministry of Culture (MoC)',
+    clientType: 'EXISTING',
+    contactPerson: 'Fahad Al-Qahtani',
+    email: 'f.qahtani@moc.gov.sa',
+    phone: '+966 50 123 4567',
+    address: 'Riyadh Cultural District, KSA',
+    commercialRegister: '1010892341',
+    notes: 'Key VIP account. Standard net-30 payment schedule.',
+    createdById: 'usr-ceo',
+    createdAt: '2026-01-10T09:00:00Z',
+    updatedAt: '2026-01-10T09:00:00Z',
+  },
+  {
+    id: 'cli-2',
+    name: 'Aramco Energy & Heritage',
+    clientType: 'EXISTING',
+    contactPerson: 'Sarah Al-Ghamdi',
+    email: 's.ghamdi@aramco.com',
+    phone: '+966 53 987 6543',
+    address: 'Dammam HQ Compound, Eastern Province',
+    commercialRegister: '2050119283',
+    notes: 'High-volume fabrication partner.',
+    createdById: 'usr-ceo',
+    createdAt: '2026-02-01T11:00:00Z',
+    updatedAt: '2026-02-01T11:00:00Z',
+  },
+];
+
+const initialRfqsSeed: RFQDocument[] = [
+  {
+    id: 'rfq-1',
+    rfqNumber: 'RFQ-2026-001',
+    clientId: 'cli-1',
+    clientName: 'Ministry of Culture (MoC)',
+    receivedDate: '2026-08-10',
+    receivedByUid: 'usr-ceo',
+    receivedByName: 'Yaqoub Al Dossary (CEO)',
+    title: 'Dammam Heritage Pavilion & Wooden Arches',
+    rawDetails:
+      'Fabrication of 4x CNC wooden arches with matte painting finish, heavy-duty lighting trussing, and VIP lounge seating.',
+    status: 'PENDING_ITEM_SPLIT',
+    assignedPricerUids: ['usr-production-lead', 'usr-procurement'],
+    items: [
+      {
+        id: 'item-101',
+        title: 'CNC Wooden Entrance Arches (4 Sets)',
+        description: '18mm MDF with fire-retardant matte paint coat',
+        quantity: 4,
+        unit: 'set',
+        type: 'IN_HOUSE',
+        category: 'CARPENTRY',
+        assignedDept: 'PRODUCTION',
+        assignedUserUid: 'usr-production-lead',
+        assignedUserName: 'Ahmed (Workshop Lead)',
+      },
+      {
+        id: 'item-102',
+        title: 'Outdoor Waterproof LED Wall (12m x 4m)',
+        description: 'P2.9 High refresh rate outdoor screen',
+        quantity: 1,
+        unit: 'lump_sum',
+        type: 'SUBCONTRACTED',
+        category: 'AV',
+        assignedDept: 'PROCUREMENT',
+        assignedUserUid: 'usr-procurement',
+        assignedUserName: 'Duniya (Procurement Officer)',
+      },
+      {
+        id: 'item-103',
+        title: 'Site Setup & Rigging Manpower (3 Days)',
+        description: 'Certified riggers & carpenters onsite in Khobar',
+        quantity: 12,
+        unit: 'pcs',
+        type: 'UNASSIGNED',
+        category: 'MANPOWER',
+      },
+    ],
+    createdById: 'usr-ceo',
+    createdAt: '2026-08-10T14:00:00Z',
+    updatedAt: '2026-08-10T14:00:00Z',
+  },
+];
+
 function EventosAppContent() {
   const { user: authUser, isLoading, mustChangePassword } = useAuth();
   const [showManualPasswordModal, setShowManualPasswordModal] = useState(false);
@@ -48,6 +139,19 @@ function EventosAppContent() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Phase 2 CRM & RFQ State
+  const [clients, setClients] = useState<ClientDocument[]>(() => {
+    const saved = localStorage.getItem('eventos_clients');
+    return saved ? JSON.parse(saved) : initialClientsSeed;
+  });
+
+  const [rfqs, setRfqs] = useState<RFQDocument[]>(() => {
+    const saved = localStorage.getItem('eventos_rfqs');
+    return saved ? JSON.parse(saved) : initialRfqsSeed;
+  });
+
+  const [rfqInitialClientId, setRfqInitialClientId] = useState<string | undefined>();
 
   // Persistent App State with LocalStorage
   const [users, setUsers] = useState<User[]>(() => {
@@ -144,6 +248,14 @@ function EventosAppContent() {
   useEffect(() => {
     localStorage.setItem('eventos_activities', JSON.stringify(activities));
   }, [activities]);
+
+  useEffect(() => {
+    localStorage.setItem('eventos_clients', JSON.stringify(clients));
+  }, [clients]);
+
+  useEffect(() => {
+    localStorage.setItem('eventos_rfqs', JSON.stringify(rfqs));
+  }, [rfqs]);
 
   // Selected event workspace modal state
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
@@ -285,6 +397,8 @@ function EventosAppContent() {
           {[
             { id: 'command-center', label: 'Command Center' },
             { id: 'dashboard', label: 'Dashboard' },
+            { id: 'clients', label: 'Client CRM' },
+            { id: 'rfqs', label: 'RFQ Intake' },
             { id: 'events', label: 'Events' },
             { id: 'staff', label: 'Staff' },
             { id: 'inventory', label: 'Inventory' },
@@ -341,6 +455,61 @@ function EventosAppContent() {
                   onSelectEvent={(evt) => {
                     setSelectedEvent(evt);
                     setActiveTab('events');
+                  }}
+                />
+              )}
+
+              {activeTab === 'clients' && (
+                <ClientCRMView
+                  clients={clients}
+                  rfqs={rfqs}
+                  currentUserRole={authUser?.role || currentUser.role}
+                  userDepartment={authUser?.department || currentUser.department}
+                  onAddClient={(newClient) => {
+                    const created: ClientDocument = {
+                      ...newClient,
+                      id: `cli-${Date.now()}`,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    };
+                    setClients((prev) => [created, ...prev]);
+                  }}
+                  onOpenNewRFQWithClient={(clientId) => {
+                    setRfqInitialClientId(clientId);
+                    setActiveTab('rfqs');
+                  }}
+                />
+              )}
+
+              {activeTab === 'rfqs' && (
+                <RFQDirectoryView
+                  rfqs={rfqs}
+                  clients={clients}
+                  users={users}
+                  initialSelectedClientId={rfqInitialClientId}
+                  onAddRFQ={(newRFQ) => {
+                    const created: RFQDocument = {
+                      ...newRFQ,
+                      id: `rfq-${Date.now()}`,
+                      rfqNumber: `RFQ-2026-00${rfqs.length + 1}`,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    };
+                    setRfqs((prev) => [created, ...prev]);
+                    setRfqInitialClientId(undefined);
+                  }}
+                  onUpdateRFQ={(updatedRFQ) => {
+                    setRfqs((prev) => prev.map((r) => (r.id === updatedRFQ.id ? updatedRFQ : r)));
+                  }}
+                  onAddClientInline={(newClient) => {
+                    const created: ClientDocument = {
+                      ...newClient,
+                      id: `cli-${Date.now()}`,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    };
+                    setClients((prev) => [created, ...prev]);
+                    return created;
                   }}
                 />
               )}

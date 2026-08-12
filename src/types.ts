@@ -1,6 +1,8 @@
 export type NavigationTab =
   | 'command-center'
   | 'dashboard'
+  | 'clients'
+  | 'rfqs'
   | 'events'
   | 'staff'
   | 'inventory'
@@ -272,5 +274,57 @@ export interface AuditLogDocument {
   metadata: Record<string, unknown>;
   timestamp: string;
   ipAddress?: string;
+}
+
+export interface ClientDocument {
+  id: string;
+  name: string;
+  clientType: 'NEW' | 'EXISTING';
+  contactPerson: string;
+  email: string;
+  phone: string;
+  address?: string;
+  commercialRegister?: string;
+  notes?: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RFQLineItem {
+  id: string;
+  title: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  type: 'UNASSIGNED' | 'IN_HOUSE' | 'SUBCONTRACTED';
+  category?: 'CARPENTRY' | 'PAINTING' | 'FABRICATION' | 'AV' | 'LIGHTING' | 'MANPOWER' | 'LOGISTICS' | 'OTHER';
+  assignedDept?: 'PRODUCTION' | 'PROCUREMENT';
+  assignedUserUid?: string;
+  assignedUserName?: string;
+}
+
+export interface RFQDocument {
+  id: string;
+  rfqNumber: string;
+  clientId: string;
+  clientName: string;
+  receivedDate: string;
+  receivedByUid: string;
+  receivedByName: string;
+  title: string;
+  rawDetails: string;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    size?: number;
+    type?: string;
+  }>;
+  status: 'RECEIVED' | 'PENDING_ITEM_SPLIT' | 'ITEMS_SPLIT' | 'IN_PRICING' | 'CANCELLED';
+  assignedPricerUids: string[];
+  items: RFQLineItem[];
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
