@@ -37,6 +37,7 @@ import { ReportsView } from './components/views/ReportsView';
 import { SettingsView } from './components/views/SettingsView';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import { LoginModal } from './components/auth/LoginModal';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 
@@ -94,6 +95,56 @@ function EventosAppContent() {
     return saved ? JSON.parse(saved) : initialActivities;
   });
 
+  // Automatically clear old cached demo data from localStorage on boot
+  useEffect(() => {
+    if (!localStorage.getItem('eventos_demo_cleared_v2')) {
+      localStorage.removeItem('eventos_alerts');
+      localStorage.removeItem('eventos_events');
+      localStorage.removeItem('eventos_shifts');
+      localStorage.removeItem('eventos_assets');
+      localStorage.removeItem('eventos_vendors');
+      localStorage.removeItem('eventos_budgets');
+      localStorage.removeItem('eventos_activities');
+      setAlerts([]);
+      setEvents([]);
+      setShifts([]);
+      setAssets([]);
+      setVendors([]);
+      setBudgets([]);
+      setActivities([]);
+      localStorage.setItem('eventos_demo_cleared_v2', 'true');
+    }
+  }, []);
+
+  // Sync persistent state changes back to localStorage
+  useEffect(() => {
+    localStorage.setItem('eventos_alerts', JSON.stringify(alerts));
+  }, [alerts]);
+
+  useEffect(() => {
+    localStorage.setItem('eventos_events', JSON.stringify(events));
+  }, [events]);
+
+  useEffect(() => {
+    localStorage.setItem('eventos_shifts', JSON.stringify(shifts));
+  }, [shifts]);
+
+  useEffect(() => {
+    localStorage.setItem('eventos_assets', JSON.stringify(assets));
+  }, [assets]);
+
+  useEffect(() => {
+    localStorage.setItem('eventos_vendors', JSON.stringify(vendors));
+  }, [vendors]);
+
+  useEffect(() => {
+    localStorage.setItem('eventos_budgets', JSON.stringify(budgets));
+  }, [budgets]);
+
+  useEffect(() => {
+    localStorage.setItem('eventos_activities', JSON.stringify(activities));
+  }, [activities]);
+
   // Selected event workspace modal state
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
 
@@ -147,6 +198,20 @@ function EventosAppContent() {
       category: 'staff',
     };
     setActivities((prev) => [newLog, ...prev]);
+  };
+
+  const handleUpdateShiftStatus = (shiftId: string, newStatus: ShiftItem['status']) => {
+    setShifts((prev) =>
+      prev.map((s) =>
+        s.id === shiftId
+          ? {
+              ...s,
+              status: newStatus,
+              conflictNote: newStatus === 'Conflict' ? s.conflictNote || 'Shift overlap conflict' : undefined,
+            }
+          : s
+      )
+    );
   };
 
   // Open Copilot Helper
@@ -297,6 +362,7 @@ function EventosAppContent() {
                 <StaffScheduleView
                   shifts={shifts}
                   onResolveConflict={handleResolveShiftConflict}
+                  onUpdateShiftStatus={handleUpdateShiftStatus}
                   onOpenCopilot={handleOpenCopilot}
                 />
               )}
@@ -373,7 +439,9 @@ function EventosAppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <EventosAppContent />
+      <ToastProvider>
+        <EventosAppContent />
+      </ToastProvider>
     </AuthProvider>
   );
 }

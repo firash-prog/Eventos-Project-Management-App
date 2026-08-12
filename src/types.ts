@@ -130,6 +130,20 @@ export interface EventItem {
   files: EventFile[];
 }
 
+export interface ToastNotification {
+  id: string;
+  type: 'warning' | 'info' | 'success' | 'alert';
+  title: string;
+  message: string;
+  category?: 'inventory' | 'staff' | 'event' | 'system';
+  timestamp: string;
+  duration?: number;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+}
+
 export interface ShiftItem {
   id: string;
   staffId: string;
@@ -143,7 +157,7 @@ export interface ShiftItem {
   location: string;
   eventId: string;
   eventName: string;
-  status: 'Confirmed' | 'Pending' | 'Conflict';
+  status: 'Confirmed' | 'Pending' | 'Conflict' | 'In Progress' | 'Completed' | 'Cancelled';
   conflictNote?: string;
 }
 
@@ -158,9 +172,11 @@ export interface AssetItem {
   name: string;
   category: 'A/V Equipment' | 'Lighting' | 'Staging' | 'Furniture' | 'Catering Hardware';
   code: string;
-  status: 'In Use' | 'Available' | 'Maintenance' | 'Checked Out';
+  status: 'In Use' | 'Available' | 'Maintenance' | 'Checked Out' | 'Low Stock';
   location: string;
   value: number;
+  quantity?: number;
+  minQuantity?: number;
   currentAssignee?: string;
   qrCode: string;
   maintenanceDate: string;
@@ -213,3 +229,48 @@ export interface ActivityLog {
   timeAgo: string;
   category: 'event' | 'budget' | 'asset' | 'staff' | 'alert';
 }
+
+export interface ApprovalRequestDocument {
+  id: string;
+  requestType:
+    | 'QUOTATION_APPROVAL'
+    | 'PROJECT_CREATION'
+    | 'BUDGET_CHANGE'
+    | 'FINANCE_TASK_ITEM'
+    | 'DESIGN_FINAL_SIGNOFF'
+    | 'SETUP_DEADLINE_EXTENSION';
+  requesterUid: string;
+  requesterRole: string;
+  targetApproverRole: 'CEO' | 'ASSISTANT_CEO' | 'FINANCE';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEEDS_INFO';
+  linkedEntityRef: {
+    collection: 'rfqs' | 'projects' | 'tasks' | 'design_versions';
+    docId: string;
+  };
+  payloadSummary: {
+    title: string;
+    description: string;
+    amountSar?: number;
+    proposedDeadline?: string;
+    changesDelta?: Record<string, unknown>;
+  };
+  decisionNote?: string;
+  decidedByUid?: string;
+  agingTimestamp: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditLogDocument {
+  id: string;
+  actorUid: string;
+  actorEmail: string;
+  actorRole: string;
+  action: 'USER_CREATED' | 'ROLE_UPDATED' | 'APPROVAL_GRANTED' | 'APPROVAL_REJECTED' | 'SECURITY_VIOLATION';
+  targetCollection: string;
+  targetDocId: string;
+  metadata: Record<string, unknown>;
+  timestamp: string;
+  ipAddress?: string;
+}
+

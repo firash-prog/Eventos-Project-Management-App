@@ -102,7 +102,9 @@ export const CommandCenterView: React.FC<CommandCenterViewProps> = ({
         <div className="glass-card rounded-2xl p-4 flex items-center justify-between">
           <div>
             <p className="text-slate-400 text-xs font-medium">Double-Booking Conflicts</p>
-            <p className="text-2xl font-black text-amber-400 mt-1">1 Crew</p>
+            <p className="text-2xl font-black text-emerald-400 mt-1">
+              {alerts.filter((a) => a.category === 'staffing' && !a.acknowledged).length} Active
+            </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 backdrop-blur-md">
             <Users className="w-5 h-5" />
@@ -112,7 +114,9 @@ export const CommandCenterView: React.FC<CommandCenterViewProps> = ({
         <div className="glass-card rounded-2xl p-4 flex items-center justify-between">
           <div>
             <p className="text-slate-400 text-xs font-medium">Budget Variances Exceeded</p>
-            <p className="text-2xl font-black text-slate-100 mt-1">SAR 42.5K</p>
+            <p className="text-2xl font-black text-slate-100 mt-1">
+              {alerts.filter((a) => a.category === 'financial' && !a.acknowledged).length > 0 ? 'SAR 42.5K' : 'SAR 0'}
+            </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 backdrop-blur-md">
             <DollarSign className="w-5 h-5" />
@@ -147,7 +151,16 @@ export const CommandCenterView: React.FC<CommandCenterViewProps> = ({
           </h2>
 
           <div className="space-y-3">
-            {filteredAlerts.map((alt) => (
+            {filteredAlerts.length === 0 ? (
+              <div className="glass-card rounded-2xl p-8 text-center flex flex-col items-center justify-center space-y-3">
+                <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                <p className="text-sm font-bold text-slate-200">All Operations Nominal</p>
+                <p className="text-xs text-slate-400 max-w-sm">
+                  No active operational alerts or double-booking incidents detected.
+                </p>
+              </div>
+            ) : (
+              filteredAlerts.map((alt) => (
               <div
                 key={alt.id}
                 className={`p-5 rounded-2xl border transition-all ${
@@ -228,7 +241,8 @@ export const CommandCenterView: React.FC<CommandCenterViewProps> = ({
                   </div>
                 </div>
               </div>
-            ))}
+            ))
+          )}
           </div>
         </div>
 
@@ -239,18 +253,22 @@ export const CommandCenterView: React.FC<CommandCenterViewProps> = ({
           </h2>
 
           <div className="glass-card rounded-2xl p-4 space-y-4">
-            {activities.map((act) => (
-              <div key={act.id} className="flex gap-3 text-xs border-b border-white/10 last:border-0 pb-3 last:pb-0">
-                <img src={act.avatar} alt={act.user} className="w-7 h-7 rounded-lg object-cover ring-1 ring-white/15" />
-                <div className="flex-1">
-                  <p className="text-slate-200 font-medium">
-                    <span className="font-bold text-indigo-300">{act.user}</span> {act.action}{' '}
-                    <span className="text-slate-300 italic">{act.target}</span>
-                  </p>
-                  <p className="text-[10px] text-slate-400 mt-1">{act.timeAgo}</p>
+            {activities.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-6">No recent field activity logged.</p>
+            ) : (
+              activities.map((act) => (
+                <div key={act.id} className="flex gap-3 text-xs border-b border-white/10 last:border-0 pb-3 last:pb-0">
+                  <img src={act.avatar} alt={act.user} className="w-7 h-7 rounded-lg object-cover ring-1 ring-white/15" />
+                  <div className="flex-1">
+                    <p className="text-slate-200 font-medium">
+                      <span className="font-bold text-indigo-300">{act.user}</span> {act.action}{' '}
+                      <span className="text-slate-300 italic">{act.target}</span>
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-1">{act.timeAgo}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* Emergency Escalation Protocol Box */}

@@ -11,20 +11,25 @@ import {
   MapPin,
   RefreshCw,
   Plus,
+  Bell,
 } from 'lucide-react';
 import { ShiftItem } from '../../types';
+import { useToast } from '../../context/ToastContext';
 
 interface StaffScheduleViewProps {
   shifts: ShiftItem[];
   onResolveConflict: (shiftId: string, newStartTime: string, newEndTime: string) => void;
+  onUpdateShiftStatus?: (shiftId: string, newStatus: ShiftItem['status']) => void;
   onOpenCopilot: (prompt?: string) => void;
 }
 
 export const StaffScheduleView: React.FC<StaffScheduleViewProps> = ({
   shifts,
   onResolveConflict,
+  onUpdateShiftStatus,
   onOpenCopilot,
 }) => {
+  const { addToast } = useToast();
   const [selectedDepartment, setSelectedDepartment] = useState<string>('All');
   const [selectedShift, setSelectedShift] = useState<ShiftItem | null>(null);
 
@@ -38,10 +43,59 @@ export const StaffScheduleView: React.FC<StaffScheduleViewProps> = ({
 
   const conflictShifts = shifts.filter((s) => s.status === 'Conflict');
 
+  const handleStatusChange = (shift: ShiftItem, newStatus: ShiftItem['status']) => {
+    if (onUpdateShiftStatus) {
+      onUpdateShiftStatus(shift.id, newStatus);
+    }
+
+    if (selectedShift && selectedShift.id === shift.id) {
+      setSelectedShift({ ...selectedShift, status: newStatus });
+    }
+
+    if (newStatus === 'Conflict' || newStatus === 'Cancelled') {
+      addToast({
+        type: 'alert',
+        title: '🚨 Shift Status Alert',
+        message: `Shift status for ${shift.staffName} (${shift.eventName}) changed to ${newStatus.toUpperCase()}!`,
+        category: 'staff',
+      });
+    } else if (newStatus === 'Confirmed' || newStatus === 'Completed') {
+      addToast({
+        type: 'success',
+        title: '✅ Shift Status Updated',
+        message: `Shift status for ${shift.staffName} (${shift.eventName}) set to ${newStatus.toUpperCase()}.`,
+        category: 'staff',
+      });
+    } else {
+      addToast({
+        type: 'info',
+        title: '🗓️ Shift Status Changed',
+        message: `Shift status for ${shift.staffName} (${shift.eventName}) changed to ${newStatus}.`,
+        category: 'staff',
+      });
+    }
+  };
+
   const handleApplyResolve = () => {
     if (!selectedShift) return;
     onResolveConflict(selectedShift.id, newStart, newEnd);
+
+    addToast({
+      type: 'success',
+      title: '✅ Shift Conflict Resolved',
+      message: `Shift double-booking for ${selectedShift.staffName} (${selectedShift.eventName}) resolved & confirmed (${newStart} - ${newEnd}).`,
+      category: 'staff',
+    });
+
     setSelectedShift(null);
+  };
+
+  const handleSimulateShiftStatusToast = () => {
+    const target = shifts[0];
+    if (target) {
+      const nextStatus = target.status === 'Confirmed' ? 'In Progress' : 'Confirmed';
+      handleStatusChange(target, nextStatus);
+    }
   };
 
   return (
@@ -58,6 +112,14 @@ export const StaffScheduleView: React.FC<StaffScheduleViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleSimulateShiftStatusToast}
+            className="flex items-center gap-1.5 bg-indigo-500/20 border border-indigo-500/40 hover:bg-indigo-500/30 text-indigo-300 font-bold px-3.5 py-2.5 rounded-xl text-xs transition-all shadow-md"
+            title="Simulate Shift Status Toast Notification"
+          >
+            <Bell className="w-4 h-4 text-indigo-400" />
+            Simulate Shift Status Toast
+          </button>
           <button
             onClick={() =>
               onOpenCopilot('Analyze current crew double-bookings and suggest an optimal re-allocation schedule.')
@@ -138,15 +200,21 @@ export const StaffScheduleView: React.FC<StaffScheduleViewProps> = ({
                 </div>
               </div>
 
-              <span
-                className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
-                  sft.status === 'Conflict'
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
-                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                }`}
-              >
-                {sft.status}
-              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
+                    sft.status === 'Conflict'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
+                      : sft.status === 'Confirmed'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : sft.status === 'In Progress'
+                      ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  }`}
+                >
+                  {sft.status}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-1.5 text-xs text-slate-200 pt-2 border-t border-white/10">
@@ -219,6 +287,22 @@ export const StaffScheduleView: React.FC<StaffScheduleViewProps> = ({
                   {selectedShift.conflictNote}
                 </div>
               )}
+
+              <div>
+                <label className="block text-slate-300 mb-1 font-semibold">Change Shift Status</label>
+                <select
+                  value={selectedShift.status}
+                  onChange={(e) => handleStatusChange(selectedShift, e.target.value as ShiftItem['status'])}
+                  className="w-full glass-input rounded-xl p-2.5 text-slate-100 focus:outline-none focus:border-indigo-400"
+                >
+                  <option value="Confirmed" className="bg-slate-950 text-slate-100">Confirmed ✅</option>
+                  <option value="In Progress" className="bg-slate-950 text-slate-100">In Progress ⏳</option>
+                  <option value="Pending" className="bg-slate-950 text-slate-100">Pending ⏱️</option>
+                  <option value="Conflict" className="bg-slate-950 text-slate-100">Conflict 🚨</option>
+                  <option value="Completed" className="bg-slate-950 text-slate-100">Completed 🎉</option>
+                  <option value="Cancelled" className="bg-slate-950 text-slate-100">Cancelled ❌</option>
+                </select>
+              </div>
 
               <div>
                 <label className="block text-slate-300 mb-1 font-semibold">Re-adjust Shift Start Time</label>

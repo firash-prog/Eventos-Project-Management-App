@@ -12,8 +12,10 @@ import {
   MapPin,
   Wrench,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import { AssetItem } from '../../types';
+import { useToast } from '../../context/ToastContext';
 
 interface InventoryViewProps {
   assets: AssetItem[];
@@ -28,6 +30,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   onUpdateAsset,
   onOpenCopilot,
 }) => {
+  const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [selectedAsset, setSelectedAsset] = useState<AssetItem | null>(assets[0] || null);
@@ -47,24 +50,57 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     return matchesSearch && matchesCategory;
   });
 
-  const handleToggleCheckOut = (asset: AssetItem) => {
-    const isCheckedOut = asset.status === 'In Use' || asset.status === 'Checked Out';
+  const handleUpdateAssetStatus = (asset: AssetItem, newStatus: AssetItem['status']) => {
+    const isLowStock = newStatus === 'Low Stock';
     const updated: AssetItem = {
       ...asset,
-      status: isCheckedOut ? 'Available' : 'In Use',
-      currentAssignee: isCheckedOut ? undefined : 'Sara Al-Otaibi (A/V Manager)',
+      status: newStatus,
       history: [
         {
           date: new Date().toISOString().split('T')[0],
-          action: isCheckedOut ? 'Checked In to Central Warehouse' : 'Checked Out for Site Operation',
-          user: 'Current User',
+          action: `Status changed to ${newStatus}`,
+          user: 'Operations Officer',
         },
         ...asset.history,
       ],
     };
+
     onUpdateAsset(updated);
     if (selectedAsset && selectedAsset.id === asset.id) {
       setSelectedAsset(updated);
+    }
+
+    if (isLowStock) {
+      addToast({
+        type: 'warning',
+        title: '⚠️ Low Stock Alert',
+        message: `Critical inventory asset "${asset.name}" (${asset.code}) has been marked as LOW STOCK! Restock required.`,
+        category: 'inventory',
+        action: {
+          label: 'Inspect Asset',
+          onClick: () => setSelectedAsset(updated),
+        },
+      });
+    } else {
+      addToast({
+        type: 'info',
+        title: '📦 Inventory Status Updated',
+        message: `Asset "${asset.name}" (${asset.code}) status set to ${newStatus}.`,
+        category: 'inventory',
+      });
+    }
+  };
+
+  const handleToggleCheckOut = (asset: AssetItem) => {
+    const isCheckedOut = asset.status === 'In Use' || asset.status === 'Checked Out';
+    const newStatus = isCheckedOut ? 'Available' : 'In Use';
+    handleUpdateAssetStatus(asset, newStatus);
+  };
+
+  const handleTriggerSimulatedLowStock = () => {
+    const targetAsset = assets.find((a) => a.status !== 'Low Stock') || assets[0];
+    if (targetAsset) {
+      handleUpdateAssetStatus(targetAsset, 'Low Stock');
     }
   };
 
@@ -90,6 +126,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     onAddAsset(created);
     setShowAddModal(false);
     setNewName('');
+
+    addToast({
+      type: 'success',
+      title: '📦 New Asset Registered',
+      message: `Asset "${created.name}" (${created.code}) successfully added to inventory.`,
+      category: 'inventory',
+    });
   };
 
   return (
@@ -106,6 +149,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleTriggerSimulatedLowStock}
+            className="flex items-center gap-1.5 bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/30 text-amber-300 font-bold px-3.5 py-2.5 rounded-xl text-xs transition-all shadow-md"
+            title="Simulate Low Stock Alert Toast"
+          >
+            <AlertCircle className="w-4 h-4 text-amber-400" />
+            Simulate Low Stock Alert
+          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-lg shadow-amber-500/10"
@@ -176,10 +227,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     <td className="p-4">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          ast.status === 'In Use'
+                          ast.status === 'Low Stock'
+                            ? 'bg-amber-500/30 text-amber-300 border border-amber-500/60 animate-pulse'
+                            : ast.status === 'In Use'
                             ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                             : ast.status === 'Available'
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
                             : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                         }`}
                       >
@@ -225,13 +278,49 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </div>
             </div>
 
-            {/* Toggle Check Out */}
-            <button
-              onClick={() => handleToggleCheckOut(selectedAsset)}
-              className="w-full glass-btn-amber font-bold py-2.5 rounded-xl text-xs transition-all shadow-lg"
-            >
-              {selectedAsset.status === 'In Use' ? 'Check In to Warehouse' : 'Check Out for Operations'}
-            </button>
+            {/* Status & Action Controls */}
+            <div className="space-y-2">
+              <label className="block text-[11px] font-semibold text-slate-300">Quick Status & Stock Controls</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleToggleCheckOut(selectedAsset)}
+                  className="glass-btn-amber font-bold py-2 rounded-xl text-[11px] transition-all shadow-md"
+                >
+                  {selectedAsset.status === 'In Use' ? 'Check In' : 'Check Out'}
+                </button>
+                <button
+                  onClick={() =>
+                    handleUpdateAssetStatus(
+                      selectedAsset,
+                      selectedAsset.status === 'Low Stock' ? 'Available' : 'Low Stock'
+                    )
+                  }
+                  className={`font-bold py-2 rounded-xl text-[11px] transition-all shadow-md flex items-center justify-center gap-1 border ${
+                    selectedAsset.status === 'Low Stock'
+                      ? 'bg-amber-500 text-slate-950 border-amber-400'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                  }`}
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {selectedAsset.status === 'Low Stock' ? 'Clear Low Stock' : 'Mark Low Stock'}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-[10px] text-slate-400">Set Status:</span>
+                <select
+                  value={selectedAsset.status}
+                  onChange={(e) => handleUpdateAssetStatus(selectedAsset, e.target.value as AssetItem['status'])}
+                  className="glass-input rounded-lg px-2 py-1 text-[11px] text-slate-100 flex-1 focus:outline-none focus:border-indigo-400"
+                >
+                  <option value="Available" className="bg-slate-950 text-slate-100">Available</option>
+                  <option value="In Use" className="bg-slate-950 text-slate-100">In Use</option>
+                  <option value="Low Stock" className="bg-slate-950 text-slate-100">Low Stock ⚠️</option>
+                  <option value="Maintenance" className="bg-slate-950 text-slate-100">Maintenance</option>
+                  <option value="Checked Out" className="bg-slate-950 text-slate-100">Checked Out</option>
+                </select>
+              </div>
+            </div>
 
             {/* History Log */}
             <div className="space-y-2 pt-2 border-t border-white/10">

@@ -1,14 +1,84 @@
 rules_version = '2';
 
 /**
- * EVENTOS V8.0 - ENTERPRISE FIRESTORE SECURITY RULES
- * Standard read/write rules for application collections and auth lookups.
+ * EVENTOS - PHASE 1 FIRESTORE SECURITY RULES
+ * Enforces RBAC for Roles, Users, Approval Requests, and Immutable Audit Logs.
  */
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getRoleData(roleId) {
+      return get(/databases/$(database)/documents/roles/$(roleId)).data;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        getUserData().roleId == 'superadmin' || 
+        request.auth.token.email == 'firash@eliteproeventsksa.com'
+      );
+    }
+
+    function isSystemAdmin() {
+      return isAuthenticated() && getUserData().roleId == 'system_admin';
+    }
+
+    function hasPermission(permissionKey) {
+      let role = getRoleData(getUserData().roleId);
+      return role.permissions[permissionKey] == true;
+    }
+
+    // ROLES COLLECTION
+    match /roles/{roleId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isSuperAdmin() || (
+        isSystemAdmin() && 
+        request.resource.data.roleId != 'superadmin' &&
+        (!exists(/databases/$(database)/documents/users/$(userId)) || resource.data.roleId != 'superadmin')
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // APPROVAL REQUESTS (UNIFIED ENGINE)
+    match /approval_requests/{approvalId} {
+      allow read: if isAuthenticated() && (
+        resource.data.requesterUid == request.auth.uid ||
+        hasPermission('canApproveQuotations') ||
+        hasPermission('canApproveBudgets') ||
+        isSuperAdmin() ||
+        isSystemAdmin()
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        hasPermission('canApproveQuotations') || 
+        hasPermission('canApproveBudgets') ||
+        isSuperAdmin()
+      );
+    }
+
+    // AUDIT LOGS (IMMUTABLE)
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin() || isSystemAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // Catch-all for authenticated operational collections
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
   }
 }
-
