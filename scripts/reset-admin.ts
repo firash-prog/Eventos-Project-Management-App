@@ -27,7 +27,7 @@ async function resetAdmin() {
     : getFirestore(app);
 
   const usernames = ['superadmin', 'admin'];
-  const newPassword = 'Eventos#Royal2026!ChangeMe';
+  const newPassword = 'firashpc123';
   const passwordHash = hashPasswordSync(newPassword);
 
   const allPermissions = {

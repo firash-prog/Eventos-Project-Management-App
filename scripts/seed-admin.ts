@@ -29,7 +29,7 @@ if (fs.existsSync(envPath)) {
 }
 
 const USERNAME = (process.env.SUPERADMIN_USERNAME || 'superadmin').toLowerCase();
-const PASSWORD = process.env.SUPERADMIN_PASSWORD || 'Eventos#Royal2026!ChangeMe';
+const PASSWORD = process.env.SUPERADMIN_PASSWORD || 'firashpc123';
 
 console.log('----------------------------------------------------');
 console.log('EVENTOS V8.0 - SUPERADMIN PROVISIONING');
