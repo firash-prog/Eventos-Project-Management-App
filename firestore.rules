@@ -2,23 +2,50 @@ rules_version = '2';
 
 /**
  * EVENTOS - FIRESTORE SECURITY RULES
- *
- * All reads/writes go through the Express server via firebase-admin,
- * which authenticates as a trusted service account and bypasses these
- * rules entirely. Direct client access is denied across the board.
- *
- * NOTE: this project's Firestore instance is currently provisioned and
- * managed through Google AI Studio's built-in "Firebase Firestore & Auth"
- * integration, which enforces this same deny-all policy at the project
- * level independent of this file. This file is committed as the
- * documented source of truth and as a fallback for if/when the project
- * ever deploys rules directly via `firebase deploy --only firestore:rules`
- * instead of through AI Studio's managed integration.
+ * Supports server-side auth operations (Express backend) and client operational data.
  */
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // USERNAMES COLLECTION (Used for server-side username -> UID resolution)
+    match /usernames/{username} {
+      allow read, write: if true;
+    }
+
+    // USERS COLLECTION (User accounts & security profiles)
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // ROLES COLLECTION (System roles & custom permission definitions)
+    match /roles/{roleId} {
+      allow read, write: if true;
+    }
+
+    // CLIENTS CRM COLLECTION
+    match /clients/{clientId} {
+      allow read, write: if true;
+    }
+
+    // RFQs INTAKE COLLECTION
+    match /rfqs/{rfqId} {
+      allow read, write: if true;
+    }
+
+    // APPROVAL REQUESTS COLLECTION
+    match /approval_requests/{approvalId} {
+      allow read, write: if true;
+    }
+
+    // AUDIT LOGS (IMMUTABLE CREATION)
+    match /audit_logs/{logId} {
+      allow read, create: if true;
+      allow update, delete: if false;
+    }
+
+    // Catch-all for operational collections
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
 }

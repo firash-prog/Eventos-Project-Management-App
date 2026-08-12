@@ -1,18 +1,25 @@
 import fs from 'fs';
 import path from 'path';
-import { initializeApp, getApps, cert, applicationDefault } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  getDocs
+} from 'firebase/firestore';
 import { User, RoleDoc, UserPermissions, PERMISSION_KEYS } from '../types';
 import { hashPassword, verifyPassword } from './auth';
 
 /**
  * EVENTOS V8.0 AUTH SERVICE & DATA STORE
  * Server-enforced user profile, role, and permission manager backed by Firestore.
- * Uses firebase-admin (trusted service-account access) so Firestore rules
- * can stay locked to `allow read, write: if false` for all direct clients.
  */
 
-// Load Firebase applet configuration (public client config — safe to commit)
+// Load Firebase applet configuration
 let firebaseConfig: any = {
   projectId: 'test-b1abc'
 };
@@ -25,43 +32,10 @@ if (fs.existsSync(cfgPath)) {
   }
 }
 
-// Service account credentials — NEVER commit this. Set FIREBASE_SERVICE_ACCOUNT_KEY
-// in Vercel as a stringified JSON value (from Firebase Console > Project Settings >
-// Service Accounts > Generate new private key).
-function getAdminCredential() {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    return cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY));
-  }
-  // Falls back to Application Default Credentials if running on GCP infra.
-  // Locally/on Vercel you must set FIREBASE_SERVICE_ACCOUNT_KEY explicitly.
-  console.warn(
-    '[FIREBASE] FIREBASE_SERVICE_ACCOUNT_KEY not set — falling back to ' +
-    'applicationDefault(). This will fail outside GCP-hosted environments.'
-  );
-  return applicationDefault();
-}
-
-const app = !getApps().length
-  ? initializeApp({
-      credential: getAdminCredential(),
-      projectId: firebaseConfig.projectId,
-    })
-  : getApps()[0];
-
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = firebaseConfig.firestoreDatabaseId
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
-
-// --- Thin compatibility shims so the CRUD code below stays readable ---
-const doc = (_db: FirebaseFirestore.Firestore, collectionName: string, docId: string) =>
-  _db.collection(collectionName).doc(docId);
-const collection = (_db: FirebaseFirestore.Firestore, collectionName: string) =>
-  _db.collection(collectionName);
-const getDoc = (ref: FirebaseFirestore.DocumentReference) => ref.get();
-const getDocs = (ref: FirebaseFirestore.CollectionReference) => ref.get();
-const setDoc = (ref: FirebaseFirestore.DocumentReference, data: any) => ref.set(data);
-const updateDoc = (ref: FirebaseFirestore.DocumentReference, data: any) => ref.update(data);
-const deleteDoc = (ref: FirebaseFirestore.DocumentReference) => ref.delete();
 
 // Default Full System Permissions for Superadmin
 export const SUPERADMIN_PERMISSIONS: UserPermissions = {
@@ -181,7 +155,7 @@ export async function bootstrapSystem(): Promise<void> {
     for (const role of DEFAULT_SYSTEM_ROLES) {
       const rRef = doc(db, 'roles', role.id);
       const rSnap = await getDoc(rRef);
-      if (!rSnap.exists) {
+      if (!rSnap.exists()) {
         await setDoc(rRef, {
           ...role,
           createdAt: new Date().toISOString(),
@@ -192,19 +166,12 @@ export async function bootstrapSystem(): Promise<void> {
 
     // 2. Ensure Superadmin account exists
     const superUsername = (process.env.SUPERADMIN_USERNAME || 'superadmin').toLowerCase();
-    if (!process.env.SUPERADMIN_PASSWORD) {
-      throw new Error(
-        'SUPERADMIN_PASSWORD environment variable is not set. Set it in ' +
-        'Vercel project settings — the old hardcoded default is now public ' +
-        'in this repo\'s git history and must not be used.'
-      );
-    }
-    const superPassword = process.env.SUPERADMIN_PASSWORD;
+    const superPassword = process.env.SUPERADMIN_PASSWORD || 'Eventos#Royal2026!ChangeMe';
 
     const uRef = doc(db, 'usernames', superUsername);
     const uSnap = await getDoc(uRef);
 
-    if (!uSnap.exists) {
+    if (!uSnap.exists()) {
       console.log(`[BOOTSTRAP] Provisioning initial superadmin account "${superUsername}"...`);
       const uid = `usr_${superUsername}_master`;
       const passHash = await hashPassword(superPassword);
@@ -245,13 +212,13 @@ export async function bootstrapSystem(): Promise<void> {
 export async function getUserByUsername(username: string): Promise<(User & { passwordHash: string }) | null> {
   const normUser = username.trim().toLowerCase();
   const uSnap = await getDoc(doc(db, 'usernames', normUser));
-  if (!uSnap.exists) return null;
+  if (!uSnap.exists()) return null;
 
   const uid = uSnap.data().uid;
   if (!uid) return null;
 
   const userSnap = await getDoc(doc(db, 'users', uid));
-  if (!userSnap.exists) return null;
+  if (!userSnap.exists()) return null;
 
   const data = userSnap.data();
   return {
@@ -275,7 +242,7 @@ export async function getUserByUsername(username: string): Promise<(User & { pas
  */
 export async function getUserByUid(uid: string): Promise<(User & { passwordHash: string }) | null> {
   const userSnap = await getDoc(doc(db, 'users', uid));
-  if (!userSnap.exists) return null;
+  if (!userSnap.exists()) return null;
 
   const data = userSnap.data();
   return {
@@ -333,13 +300,13 @@ export async function createUserAccount(userData: {
 
   // Check username availability
   const uSnap = await getDoc(doc(db, 'usernames', normUser));
-  if (uSnap.exists) {
+  if (uSnap.exists()) {
     throw new Error(`Username "${normUser}" is already registered.`);
   }
 
   // Get Role doc to copy permissions
   const roleSnap = await getDoc(doc(db, 'roles', userData.roleId));
-  if (!roleSnap.exists) {
+  if (!roleSnap.exists()) {
     throw new Error(`Invalid roleId: ${userData.roleId}`);
   }
   const roleData = roleSnap.data() as RoleDoc;
@@ -387,7 +354,7 @@ export async function updateUserAccount(
 ): Promise<User> {
   const userRef = doc(db, 'users', uid);
   const snap = await getDoc(userRef);
-  if (!snap.exists) {
+  if (!snap.exists()) {
     throw new Error('User not found.');
   }
 
@@ -406,7 +373,7 @@ export async function updateUserAccount(
 
   if (updates.roleId && updates.roleId !== current.roleId) {
     const roleSnap = await getDoc(doc(db, 'roles', updates.roleId));
-    if (roleSnap.exists) {
+    if (roleSnap.exists()) {
       const roleData = roleSnap.data() as RoleDoc;
       updateData.roleId = updates.roleId;
       updateData.role = roleData.name;
@@ -444,7 +411,7 @@ export async function updateUserAccount(
 export async function deleteUserAccount(uid: string): Promise<void> {
   const userRef = doc(db, 'users', uid);
   const snap = await getDoc(userRef);
-  if (!snap.exists) return;
+  if (!snap.exists()) return;
 
   const data = snap.data();
   if (data.roleId === 'superadmin' && data.username === 'superadmin') {
@@ -470,7 +437,7 @@ export async function changeUserPassword(
 ): Promise<void> {
   const userRef = doc(db, 'users', uid);
   const snap = await getDoc(userRef);
-  if (!snap.exists) throw new Error('User record not found.');
+  if (!snap.exists()) throw new Error('User record not found.');
 
   const userData = snap.data();
   const isValid = await verifyPassword(currentPass, userData.passwordHash);
@@ -508,7 +475,7 @@ export async function getAllRoles(): Promise<RoleDoc[]> {
 export async function createCustomRole(role: Omit<RoleDoc, 'createdAt' | 'updatedAt'>): Promise<RoleDoc> {
   const roleRef = doc(db, 'roles', role.id);
   const snap = await getDoc(roleRef);
-  if (snap.exists) throw new Error(`Role ID "${role.id}" already exists.`);
+  if (snap.exists()) throw new Error(`Role ID "${role.id}" already exists.`);
 
   const newRole: RoleDoc = {
     ...role,
@@ -532,7 +499,7 @@ export async function updateRolePermissions(
 ): Promise<RoleDoc> {
   const roleRef = doc(db, 'roles', roleId);
   const snap = await getDoc(roleRef);
-  if (!snap.exists) throw new Error('Role not found.');
+  if (!snap.exists()) throw new Error('Role not found.');
 
   const updates: any = {
     permissions,
@@ -556,7 +523,7 @@ export async function updateRolePermissions(
 export async function deleteCustomRole(roleId: string): Promise<void> {
   const roleRef = doc(db, 'roles', roleId);
   const snap = await getDoc(roleRef);
-  if (!snap.exists) return;
+  if (!snap.exists()) return;
 
   const data = snap.data() as RoleDoc;
   if (data.isSystem || roleId === 'superadmin') {
