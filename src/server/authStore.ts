@@ -215,6 +215,8 @@ export async function getUserByUsername(username: string): Promise<(User & { pas
   if (!uSnap.exists()) return null;
 
   const uid = uSnap.data().uid;
+  if (!uid) return null;
+
   const userSnap = await getDoc(doc(db, 'users', uid));
   if (!userSnap.exists()) return null;
 
@@ -530,3 +532,4 @@ export async function deleteCustomRole(roleId: string): Promise<void> {
 
   await deleteDoc(roleRef);
 }
+

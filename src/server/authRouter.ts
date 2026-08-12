@@ -112,8 +112,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     // Set HTTP-only session cookie
     res.cookie('eventos_session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -130,13 +130,45 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
 // Logout
 authRouter.post('/logout', (req: Request, res: Response) => {
-  res.clearCookie('eventos_session');
+  res.clearCookie('eventos_session', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+  });
   return res.json({ status: 'ok', message: 'Logged out successfully.' });
 });
 
-// Get Current User Profile
-authRouter.get('/me', requireAuth, (req: Request, res: Response) => {
-  return res.json({ user: (req as any).user });
+// Get Current User Profile (Gracefully handles unauthenticated visits)
+authRouter.get('/me', async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const cookieToken = req.cookies?.eventos_session;
+    const xToken = req.headers['x-session-token'] as string;
+    let token = cookieToken || xToken;
+
+    if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+
+    if (!token) {
+      return res.json({ user: null });
+    }
+
+    const payload = verifySessionToken(token);
+    if (!payload) {
+      return res.json({ user: null });
+    }
+
+    const freshUser = await getUserByUid(payload.uid);
+    if (!freshUser || freshUser.status === 'Inactive') {
+      return res.json({ user: null });
+    }
+
+    const { passwordHash, ...userClean } = freshUser;
+    return res.json({ user: userClean });
+  } catch (err) {
+    return res.json({ user: null });
+  }
 });
 
 // Change Password Route
@@ -171,8 +203,8 @@ authRouter.post('/change-password', requireAuth, async (req: Request, res: Respo
 
     res.cookie('eventos_session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 

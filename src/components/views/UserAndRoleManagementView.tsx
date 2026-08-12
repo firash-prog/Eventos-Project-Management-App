@@ -17,7 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { User, RoleDoc, PERMISSION_KEYS, PermissionKey, UserPermissions } from '../../types';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, authFetch } from '../../context/AuthContext';
 
 export const UserAndRoleManagementView: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -73,8 +73,8 @@ export const UserAndRoleManagementView: React.FC = () => {
       setError(null);
 
       const [usersRes, rolesRes] = await Promise.all([
-        fetch('/api/auth/users'),
-        fetch('/api/auth/roles'),
+        authFetch('/api/auth/users'),
+        authFetch('/api/auth/roles'),
       ]);
 
       if (!usersRes.ok || !rolesRes.ok) {
@@ -101,7 +101,7 @@ export const UserAndRoleManagementView: React.FC = () => {
     e.preventDefault();
     try {
       setError(null);
-      const res = await fetch('/api/auth/users', {
+      const res = await authFetch('/api/auth/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -134,7 +134,7 @@ export const UserAndRoleManagementView: React.FC = () => {
 
     try {
       setError(null);
-      const res = await fetch(`/api/auth/users/${selectedUser.id}`, {
+      const res = await authFetch(`/api/auth/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -161,7 +161,7 @@ export const UserAndRoleManagementView: React.FC = () => {
 
     try {
       setError(null);
-      const res = await fetch(`/api/auth/users/${userId}`, {
+      const res = await authFetch(`/api/auth/users/${userId}`, {
         method: 'DELETE',
       });
 
@@ -178,7 +178,7 @@ export const UserAndRoleManagementView: React.FC = () => {
     e.preventDefault();
     try {
       setError(null);
-      const res = await fetch('/api/auth/roles', {
+      const res = await authFetch('/api/auth/roles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -208,7 +208,7 @@ export const UserAndRoleManagementView: React.FC = () => {
 
     try {
       setError(null);
-      const res = await fetch(`/api/auth/roles/${selectedRole.id}`, {
+      const res = await authFetch(`/api/auth/roles/${selectedRole.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -234,7 +234,7 @@ export const UserAndRoleManagementView: React.FC = () => {
 
     try {
       setError(null);
-      const res = await fetch(`/api/auth/roles/${rId}`, {
+      const res = await authFetch(`/api/auth/roles/${rId}`, {
         method: 'DELETE',
       });
 

@@ -1,6 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole, UserPermissions } from '../types';
 
+export const authFetch = (url: string, options: RequestInit = {}) => {
+  const token = localStorage.getItem('eventos_token');
+  const headers = new Headers(options.headers || {});
+
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
+};
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -33,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchCurrentUser = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/auth/me');
+      const res = await authFetch('/api/auth/me');
       if (res.ok) {
         const data = await res.json();
         if (data.user) {
@@ -61,11 +76,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
+      credentials: 'include',
     });
 
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || 'Authentication failed');
+    }
+
+    if (data.token) {
+      localStorage.setItem('eventos_token', data.token);
     }
 
     setUser(data.user);
@@ -74,17 +94,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await authFetch('/api/auth/logout', { method: 'POST' });
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
+      localStorage.removeItem('eventos_token');
       setUser(null);
       setMustChangePassword(false);
     }
   };
 
   const changePassword = async (currentPassword: string, newPassword: string) => {
-    const res = await fetch('/api/auth/change-password', {
+    const res = await authFetch('/api/auth/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentPassword, newPassword }),
@@ -93,6 +114,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || 'Password update failed');
+    }
+
+    if (data.token) {
+      localStorage.setItem('eventos_token', data.token);
     }
 
     setUser(data.user);
