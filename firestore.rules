@@ -1,0 +1,24 @@
+rules_version = '2';
+
+/**
+ * EVENTOS - FIRESTORE SECURITY RULES
+ *
+ * All reads/writes go through the Express server via firebase-admin,
+ * which authenticates as a trusted service account and bypasses these
+ * rules entirely. Direct client access is denied across the board.
+ *
+ * NOTE: this project's Firestore instance is currently provisioned and
+ * managed through Google AI Studio's built-in "Firebase Firestore & Auth"
+ * integration, which enforces this same deny-all policy at the project
+ * level independent of this file. This file is committed as the
+ * documented source of truth and as a fallback for if/when the project
+ * ever deploys rules directly via `firebase deploy --only firestore:rules`
+ * instead of through AI Studio's managed integration.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
