@@ -1,0 +1,8 @@
+{
+  "name": "Eventos",
+  "description": "Elite Event Management & Command Center platform with real-time operations, staff scheduling, asset tracking, vendor management, budget analytics, and AI assistance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
