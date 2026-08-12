@@ -51,14 +51,23 @@ export const CommandCopilotDrawer: React.FC<CommandCopilotDrawerProps> = ({
         body: JSON.stringify({ prompt: query, context: contextData }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get('content-type');
+      let data: any = null;
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          data = await res.json();
+        } catch {
+          data = null;
+        }
+      }
+
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to generate response');
+        throw new Error(data?.error || `AI Copilot request failed (HTTP ${res.status})`);
       }
 
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: data.text || 'No response generated.' },
+        { role: 'assistant', content: data?.text || 'No response generated.' },
       ]);
     } catch (err: any) {
       console.error('Copilot Fetch Error:', err);

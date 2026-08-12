@@ -17,7 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { User, RoleDoc, PERMISSION_KEYS, PermissionKey, UserPermissions } from '../../types';
-import { useAuth, authFetch } from '../../context/AuthContext';
+import { useAuth, authFetch, parseJsonResponse } from '../../context/AuthContext';
 
 export const UserAndRoleManagementView: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -77,12 +77,8 @@ export const UserAndRoleManagementView: React.FC = () => {
         authFetch('/api/auth/roles'),
       ]);
 
-      if (!usersRes.ok || !rolesRes.ok) {
-        throw new Error('Failed to fetch users or roles from server.');
-      }
-
-      const usersData = await usersRes.json();
-      const rolesData = await rolesRes.json();
+      const usersData = await parseJsonResponse(usersRes);
+      const rolesData = await parseJsonResponse(rolesRes);
 
       setUsers(usersData.users || []);
       setRoles(rolesData.roles || []);
@@ -114,8 +110,7 @@ export const UserAndRoleManagementView: React.FC = () => {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create user account.');
+      await parseJsonResponse(res);
 
       setShowCreateUserModal(false);
       setNewUsername('');
@@ -145,8 +140,7 @@ export const UserAndRoleManagementView: React.FC = () => {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update user.');
+      await parseJsonResponse(res);
 
       setShowEditUserModal(false);
       setSelectedUser(null);
@@ -165,8 +159,7 @@ export const UserAndRoleManagementView: React.FC = () => {
         method: 'DELETE',
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete user.');
+      await parseJsonResponse(res);
 
       fetchData();
     } catch (err: any) {
@@ -189,8 +182,7 @@ export const UserAndRoleManagementView: React.FC = () => {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create custom role.');
+      await parseJsonResponse(res);
 
       setShowCreateRoleModal(false);
       setRoleId('');
@@ -218,8 +210,7 @@ export const UserAndRoleManagementView: React.FC = () => {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update role permissions.');
+      await parseJsonResponse(res);
 
       setShowEditRoleModal(false);
       setSelectedRole(null);
@@ -238,8 +229,7 @@ export const UserAndRoleManagementView: React.FC = () => {
         method: 'DELETE',
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete role.');
+      await parseJsonResponse(res);
 
       fetchData();
     } catch (err: any) {

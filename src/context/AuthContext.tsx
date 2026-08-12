@@ -40,6 +40,29 @@ const DEFAULT_GUEST_PERMISSIONS: UserPermissions = {
   manageVendors: false,
 };
 
+export const parseJsonResponse = async (res: Response) => {
+  const contentType = res.headers.get('content-type');
+  let data: any = null;
+  if (contentType && contentType.includes('application/json')) {
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!res.ok) {
+    const errorMsg = data?.error || `Server error (HTTP ${res.status})`;
+    throw new Error(errorMsg);
+  }
+
+  if (!data) {
+    throw new Error('Received non-JSON response from server.');
+  }
+
+  return data;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -49,7 +72,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       const res = await authFetch('/api/auth/me');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
         if (data.user) {
           setUser(data.user);
@@ -79,10 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       credentials: 'include',
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Authentication failed');
-    }
+    const data = await parseJsonResponse(res);
 
     if (data.token) {
       localStorage.setItem('eventos_token', data.token);
@@ -111,10 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ currentPassword, newPassword }),
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Password update failed');
-    }
+    const data = await parseJsonResponse(res);
 
     if (data.token) {
       localStorage.setItem('eventos_token', data.token);
